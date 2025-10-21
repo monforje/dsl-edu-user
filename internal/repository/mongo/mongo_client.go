@@ -40,11 +40,16 @@ func New(cfg *config.ConfigDatabase) (*Mongo, error) {
 	db := client.Database(cfg.DBname)
 	col := db.Collection(cfg.COLname)
 
-	log.Printf("MongoDB подключен: %s/%s (%s)", cfg.MongoURI, cfg.DBname, cfg.COLname)
+	log.Printf("MongoDB подключен...")
 
 	return &Mongo{
 		Client:     client,
 		DB:         db,
 		Collection: col,
 	}, nil
+}
+
+func (m *Mongo) Close(ctx context.Context) error {
+	log.Println("отключение от MongoDB...")
+	return m.Client.Disconnect(ctx)
 }

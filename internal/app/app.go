@@ -1,7 +1,13 @@
 package app
 
 import (
+	"context"
 	"fmt"
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/labstack/echo/v4"
 
@@ -50,10 +56,32 @@ func New() (*App, error) {
 }
 
 func (a *App) Run() error {
-	fmt.Println("сервер запущен на :8080")
+	log.Println("сервер запущен на :8080")
 
-	if err := a.echo.Start(":8080"); err != nil {
-		return fmt.Errorf("ошибка при запуске http сервера: %w", err)
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		if err := a.echo.Start(":8080"); err != nil {
+			log.Println("HTTP сервер остановлен...")
+			log.Println(err)
+		}
+	}()
+
+	<-quit
+	log.Println("завершение работы сервера...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := a.db.Close(ctx); err != nil {
+		log.Printf("ошибка при отключении Mongo: %v", err)
 	}
+
+	if err := a.echo.Shutdown(ctx); err != nil {
+		log.Printf("ошибка при завершении Echo: %v", err)
+	}
+
+	log.Println("сервер корректно завершил работу")
 	return nil
 }
